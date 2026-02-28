@@ -15,11 +15,24 @@
 uint16_t getPortFromFile(std::string filename) {
   std::ifstream file;
   file.open(filename);
+
+  if (!file.is_open()) {
+    std::cerr << "Could not open " << filename
+              << ", using default port 12345" << std::endl;
+    return 12345;
+  }
+
   std::string line;
   std::getline(file, line);
   file.close();
 
-  return std::stoi(line);
+  try {
+    return static_cast<uint16_t>(std::stoi(line));
+  } catch (const std::exception &e) {
+    std::cerr << "Invalid port in " << filename << ": " << e.what()
+              << ", using default port 12345" << std::endl;
+    return 12345;
+  }
 }
 
 rlbot::Bot *botFactory(int index, int team, std::string name) {

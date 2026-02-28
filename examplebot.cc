@@ -16,7 +16,11 @@ ExampleBot::ExampleBot(int _index, int _team, std::string _name)
         sessionOptions.SetGraphOptimizationLevel(
             GraphOptimizationLevel::ORT_ENABLE_ALL);
 
+#ifdef _WIN32
         session = std::make_unique<Ort::Session>(ort_env, L"model.onnx", sessionOptions);
+#else
+        session = std::make_unique<Ort::Session>(ort_env, "model.onnx", sessionOptions);
+#endif
         std::cout << "=== ONNX Modell geladen! ===" << std::endl;
     } catch (const Ort::Exception& e) {
         std::cerr << "ONNX Fehler: " << e.what() << std::endl;
@@ -72,13 +76,33 @@ rlbot::Controller ExampleBot::GetOutput(
     rlbot::GameTickPacket gametickpacket) {
 
     try {
+        if (!session) {
+            std::cerr << "ONNX session not loaded, returning empty controller" << std::endl;
+            rlbot::Controller controller{ 0 };
+            return controller;
+        }
+
         auto* ball = gametickpacket->ball();
+        if (!ball || !ball->physics()) {
+            rlbot::Controller controller{ 0 };
+            return controller;
+        }
         auto* ballPhys = ball->physics();
         auto* ballLoc = ballPhys->location();
         auto* ballVel = ballPhys->velocity();
         auto* ballAngVel = ballPhys->angularVelocity();
 
+        if (!gametickpacket->players() ||
+            static_cast<int>(gametickpacket->players()->size()) <= index) {
+            rlbot::Controller controller{ 0 };
+            return controller;
+        }
+
         auto* player = gametickpacket->players()->Get(index);
+        if (!player || !player->physics()) {
+            rlbot::Controller controller{ 0 };
+            return controller;
+        }
         auto* playerPhys = player->physics();
         auto* playerLoc = playerPhys->location();
         auto* playerVel = playerPhys->velocity();
@@ -196,8 +220,7 @@ rlbot::Controller ExampleBot::GetOutput(
         auto actions = RunInference(obs);
 
         // Debug: alle ~1 Sekunde Actions ausgeben
-        static int frame = 0;
-        if (frame++ % 120 == 0) {
+        if (frame_counter++ % 120 == 0) {
             std::cout << "Actions: "
                 << actions[0] << " " << actions[1] << " " << actions[2] << " "
                 << actions[3] << " " << actions[4] << " " << actions[5] << " "
