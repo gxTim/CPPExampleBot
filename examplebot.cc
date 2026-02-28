@@ -1,95 +1,201 @@
 #include "examplebot.h"
-
-#include <ctime>
-#include <math.h>
+#include <cmath>
+#include <algorithm>
 #include <string>
 
-#include "rlbot/bot.h"
-#include "rlbot/color.h"
-#include "rlbot/interface.h"
-#include "rlbot/rlbot_generated.h"
-#include "rlbot/scopedrenderer.h"
-#include "rlbot/statesetting.h"
-
-#define PI 3.1415
-
 ExampleBot::ExampleBot(int _index, int _team, std::string _name)
-    : Bot(_index, _team, _name) {
-  rlbot::GameState gamestate = rlbot::GameState();
+    : Bot(_index, _team, _name),
+    ort_env(ORT_LOGGING_LEVEL_WARNING, "RLBot") {
 
-  gamestate.ballState.physicsState.location = {0, 0, 1000};
-  gamestate.ballState.physicsState.velocity = {0, 0, 5000};
+    sessionOptions.SetIntraOpNumThreads(1);
+    sessionOptions.SetGraphOptimizationLevel(
+        GraphOptimizationLevel::ORT_ENABLE_ALL);
 
-  rlbot::CarState carstate = rlbot::CarState();
-  carstate.physicsState.location = {0, 500, 1000};
-  carstate.physicsState.velocity = {500, 1000, 1000};
-  carstate.physicsState.angularVelocity = {1, 2, 3};
-
-  carstate.boostAmount = 50;
-
-  gamestate.carStates[_index] = carstate;
-
-  rlbot::Interface::SetGameState(gamestate);
+    session = std::make_unique<Ort::Session>(ort_env, L"model.onnx", sessionOptions);
 }
 
-ExampleBot::~ExampleBot() {
-  // Free your allocated memory here.
+ExampleBot::~ExampleBot() {}
+
+void ExampleBot::EulerToForwardUp(float pitch, float yaw, float roll,
+    float* forward, float* up) {
+    float cp = std::cos(pitch);
+    float sp = std::sin(pitch);
+    float cy = std::cos(yaw);
+    float sy = std::sin(yaw);
+    float cr = std::cos(roll);
+    float sr = std::sin(roll);
+
+    forward[0] = cp * cy;
+    forward[1] = cp * sy;
+    forward[2] = sp;
+
+    up[0] = -cr * cy * sp - sr * sy;
+    up[1] = -cr * sy * sp + sr * cy;
+    up[2] = cp * cr;
 }
 
-rlbot::Controller ExampleBot::GetOutput(rlbot::GameTickPacket gametickpacket) {
+std::array<float, 8> ExampleBot::RunInference(
+    const std::array<float, 89>& obs) {
 
-  rlbot::flat::Vector3 ballLocation =
-      *gametickpacket->ball()->physics()->location();
-  rlbot::flat::Vector3 ballVelocity =
-      *gametickpacket->ball()->physics()->velocity();
-  rlbot::flat::Vector3 carLocation =
-      *gametickpacket->players()->Get(index)->physics()->location();
-  rlbot::flat::Rotator carRotation =
-      *gametickpacket->players()->Get(index)->physics()->rotation();
+    std::array<int64_t, 2> inputShape = { 1, 89 };
+    auto memInfo = Ort::MemoryInfo::CreateCpu(
+        OrtArenaAllocator, OrtMemTypeDefault);
 
-  // Calculate the velocity of the ball.
-  float velocity = sqrt(ballVelocity.x() * ballVelocity.x() +
-                        ballVelocity.y() * ballVelocity.y() +
-                        ballVelocity.z() * ballVelocity.z());
+    auto inputTensor = Ort::Value::CreateTensor<float>(
+        memInfo, const_cast<float*>(obs.data()), 89,
+        inputShape.data(), 2);
 
-  // This renderer will build and send the packet once it goes out of scope.
-  rlbot::ScopedRenderer renderer("test");
+    const char* inputNames[] = { "observation" };
+    const char* outputNames[] = { "action" };
 
-  // Load the ballprediction into a vector to use for rendering.
-  std::vector<const rlbot::flat::Vector3 *> points;
+    auto output = session->Run(Ort::RunOptions{ nullptr },
+        inputNames, &inputTensor, 1, outputNames, 1);
 
-  rlbot::BallPrediction ballprediction = GetBallPrediction();
+    float* outData = output[0].GetTensorMutableData<float>();
+    std::array<float, 8> actions;
+    std::copy(outData, outData + 8, actions.begin());
+    return actions;
+}
 
-  for (uint32_t i = 0; i < ballprediction->slices()->size(); i++) {
-    points.push_back(ballprediction->slices()->Get(i)->physics()->location());
-  }
+rlbot::Controller ExampleBot::GetOutput(
+    rlbot::GameTickPacket gametickpacket) {
 
-  renderer.DrawPolyLine3D(rlbot::Color::red, points);
+    auto* ball = gametickpacket->ball();
+    auto* ballPhys = ball->physics();
+    auto* ballLoc = ballPhys->location();
+    auto* ballVel = ballPhys->velocity();
+    auto* ballAngVel = ballPhys->angularVelocity();
 
-  renderer.DrawString2D("Hello world!", rlbot::Color::green,
-                        rlbot::flat::Vector3{10, 10, 0}, 4, 4);
-  renderer.DrawString3D(std::to_string(velocity), rlbot::Color::magenta,
-                        ballLocation, 2, 2);
+    auto* player = gametickpacket->players()->Get(index);
+    auto* playerPhys = player->physics();
+    auto* playerLoc = playerPhys->location();
+    auto* playerVel = playerPhys->velocity();
+    auto* playerAngVel = playerPhys->angularVelocity();
+    auto* playerRot = playerPhys->rotation();
 
-  // Calculate to get the angle from the front of the bot's car to the ball.
-  double botToTargetAngle = atan2(ballLocation.y() - carLocation.y(),
-                                  ballLocation.x() - carLocation.x());
-  double botFrontToTargetAngle = botToTargetAngle - carRotation.yaw();
-  // Correct the angle.
-  if (botFrontToTargetAngle < -PI)
-    botFrontToTargetAngle += 2 * PI;
-  if (botFrontToTargetAngle > PI)
-    botFrontToTargetAngle -= 2 * PI;
+    int enemyIdx = -1;
+    for (uint32_t i = 0; i < gametickpacket->players()->size(); i++) {
+        if ((int)i != index) {
+            enemyIdx = i;
+            break;
+        }
+    }
 
-  rlbot::Controller controller{0};
+    float inv = (team == 1) ? -1.0f : 1.0f;
 
-  // Decide which way to steer in order to get to the ball.
-  if (botFrontToTargetAngle > 0)
-    controller.steer = 1;
-  else
-    controller.steer = -1;
+    std::array<float, 89> obs = {};
+    int idx = 0;
 
-  controller.throttle = 1.0f;
+    // Ball Position [0-2]
+    obs[idx++] = ballLoc->x() * inv * pos_coef[0];
+    obs[idx++] = ballLoc->y() * inv * pos_coef[1];
+    obs[idx++] = ballLoc->z() * pos_coef[2];
 
-  return controller;
+    // Ball Linear Velocity [3-5]
+    obs[idx++] = ballVel->x() * inv * lin_vel_coef;
+    obs[idx++] = ballVel->y() * inv * lin_vel_coef;
+    obs[idx++] = ballVel->z() * lin_vel_coef;
+
+    // Ball Angular Velocity [6-8]
+    float ball_ang_coef = 1.0f / PI_F;
+    obs[idx++] = ballAngVel->x() * inv * ball_ang_coef;
+    obs[idx++] = ballAngVel->y() * inv * ball_ang_coef;
+    obs[idx++] = ballAngVel->z() * ball_ang_coef;
+
+    // Previous Action [9-16]
+    for (int i = 0; i < 8; i++) {
+        obs[idx++] = prev_action[i];
+    }
+
+    // Boost Pads [17-50] (34 pads)
+    for (int i = 0; i < 34; i++) {
+        obs[idx++] = 1.0f;
+    }
+
+    // Player
+    float pForward[3], pUp[3];
+    EulerToForwardUp(playerRot->pitch(), playerRot->yaw(), playerRot->roll(),
+        pForward, pUp);
+
+    obs[idx++] = playerLoc->x() * inv * pos_coef[0];
+    obs[idx++] = playerLoc->y() * inv * pos_coef[1];
+    obs[idx++] = playerLoc->z() * pos_coef[2];
+
+    obs[idx++] = pForward[0] * inv;
+    obs[idx++] = pForward[1] * inv;
+    obs[idx++] = pForward[2];
+
+    obs[idx++] = pUp[0] * inv;
+    obs[idx++] = pUp[1] * inv;
+    obs[idx++] = pUp[2];
+
+    obs[idx++] = playerVel->x() * inv * lin_vel_coef;
+    obs[idx++] = playerVel->y() * inv * lin_vel_coef;
+    obs[idx++] = playerVel->z() * lin_vel_coef;
+
+    obs[idx++] = playerAngVel->x() * inv * ang_vel_coef;
+    obs[idx++] = playerAngVel->y() * inv * ang_vel_coef;
+    obs[idx++] = playerAngVel->z() * ang_vel_coef;
+
+    obs[idx++] = player->boost() / 100.0f;
+    obs[idx++] = 1.0f;  // on_ground
+    obs[idx++] = 1.0f;  // has_flip
+    obs[idx++] = player->isDemolished() ? 1.0f : 0.0f;
+
+    // Enemy
+    if (enemyIdx >= 0) {
+        auto* enemy = gametickpacket->players()->Get(enemyIdx);
+        auto* ePhys = enemy->physics();
+        auto* eLoc = ePhys->location();
+        auto* eVel = ePhys->velocity();
+        auto* eAngVel = ePhys->angularVelocity();
+        auto* eRot = ePhys->rotation();
+
+        float eForward[3], eUp[3];
+        EulerToForwardUp(eRot->pitch(), eRot->yaw(), eRot->roll(),
+            eForward, eUp);
+
+        obs[idx++] = eLoc->x() * inv * pos_coef[0];
+        obs[idx++] = eLoc->y() * inv * pos_coef[1];
+        obs[idx++] = eLoc->z() * pos_coef[2];
+
+        obs[idx++] = eForward[0] * inv;
+        obs[idx++] = eForward[1] * inv;
+        obs[idx++] = eForward[2];
+
+        obs[idx++] = eUp[0] * inv;
+        obs[idx++] = eUp[1] * inv;
+        obs[idx++] = eUp[2];
+
+        obs[idx++] = eVel->x() * inv * lin_vel_coef;
+        obs[idx++] = eVel->y() * inv * lin_vel_coef;
+        obs[idx++] = eVel->z() * lin_vel_coef;
+
+        obs[idx++] = eAngVel->x() * inv * ang_vel_coef;
+        obs[idx++] = eAngVel->y() * inv * ang_vel_coef;
+        obs[idx++] = eAngVel->z() * ang_vel_coef;
+
+        obs[idx++] = enemy->boost() / 100.0f;
+        obs[idx++] = 1.0f;
+        obs[idx++] = 1.0f;
+        obs[idx++] = enemy->isDemolished() ? 1.0f : 0.0f;
+    }
+
+    // Inferenz
+    auto actions = RunInference(obs);
+
+    // Controller
+    rlbot::Controller controller{ 0 };
+    controller.throttle = std::clamp(actions[0], -1.0f, 1.0f);
+    controller.steer = std::clamp(actions[1], -1.0f, 1.0f);
+    controller.pitch = std::clamp(actions[2], -1.0f, 1.0f);
+    controller.yaw = std::clamp(actions[3], -1.0f, 1.0f);
+    controller.roll = std::clamp(actions[4], -1.0f, 1.0f);
+    controller.jump = actions[5] > 0.0f;
+    controller.boost = actions[6] > 0.0f;
+    controller.handbrake = actions[7] > 0.0f;
+
+    prev_action = actions;
+
+    return controller;
 }

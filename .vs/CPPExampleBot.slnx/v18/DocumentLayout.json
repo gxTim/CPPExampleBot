@@ -1,12 +1,53 @@
 {
   "Version": 1,
   "WorkspaceRootPath": "C:\\Users\\randi\\Desktop\\CPPExampleBot\\",
-  "Documents": [],
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{09ECD45C-0D1C-372D-B2DE-DA3A5C03112D}|CPPExampleBot.vcxproj|C:\\Users\\randi\\Desktop\\CPPExampleBot\\examplebot.cc||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{09ECD45C-0D1C-372D-B2DE-DA3A5C03112D}|CPPExampleBot.vcxproj|solutionrelative:examplebot.cc||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{09ECD45C-0D1C-372D-B2DE-DA3A5C03112D}|CPPExampleBot.vcxproj|C:\\Users\\randi\\Desktop\\CPPExampleBot\\examplebot.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{09ECD45C-0D1C-372D-B2DE-DA3A5C03112D}|CPPExampleBot.vcxproj|solutionrelative:examplebot.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    }
+  ],
   "DocumentGroupContainers": [
     {
       "Orientation": 0,
       "VerticalTabListWidth": 256,
-      "DocumentGroups": []
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 0,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "examplebot.cc",
+              "DocumentMoniker": "C:\\Users\\randi\\Desktop\\CPPExampleBot\\examplebot.cc",
+              "RelativeDocumentMoniker": "examplebot.cc",
+              "ToolTip": "C:\\Users\\randi\\Desktop\\CPPExampleBot\\examplebot.cc",
+              "RelativeToolTip": "examplebot.cc",
+              "ViewState": "AgIAAJIAAAAAAAAAAAAUwMgAAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
+              "WhenOpened": "2026-02-28T16:34:11.589Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "examplebot.h",
+              "DocumentMoniker": "C:\\Users\\randi\\Desktop\\CPPExampleBot\\examplebot.h",
+              "RelativeDocumentMoniker": "examplebot.h",
+              "ToolTip": "C:\\Users\\randi\\Desktop\\CPPExampleBot\\examplebot.h",
+              "RelativeToolTip": "examplebot.h",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAACIAAAACAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
+              "WhenOpened": "2026-02-28T16:33:53.955Z"
+            }
+          ]
+        }
+      ]
     }
   ]
 }
