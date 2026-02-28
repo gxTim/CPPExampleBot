@@ -1,0 +1,10 @@
+^C:\USERS\RANDI\DESKTOP\CPPEXAMPLEBOT\CMAKEFILES\B25F9F97CCBEA8DF241E76C8B7CB4C4A\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/randi/Desktop/CPPExampleBot -BC:/Users/randi/Desktop/CPPExampleBot --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file C:/Users/randi/Desktop/CPPExampleBot/CPPExampleBot.slnx
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
