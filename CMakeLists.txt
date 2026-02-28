@@ -15,7 +15,9 @@ target_include_directories(CPPExampleBot PRIVATE
 )
 
 if (UNIX)
-    target_link_libraries(CPPExampleBot RLBotCPP pthread)
+    target_link_libraries(CPPExampleBot RLBotCPP pthread
+        ${ONNXRUNTIME_DIR}/lib/libonnxruntime.so
+    )
 else (UNIX)
     target_link_libraries(CPPExampleBot RLBotCPP
         ${ONNXRUNTIME_DIR}/lib/onnxruntime.lib
@@ -36,8 +38,15 @@ add_custom_command(TARGET CPPExampleBot POST_BUILD
         "${PROJECT_SOURCE_DIR}/model.onnx"
         $<TARGET_FILE_DIR:CPPExampleBot>)
 
-# Copy ONNX Runtime DLL
-add_custom_command(TARGET CPPExampleBot POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${ONNXRUNTIME_DIR}/lib/onnxruntime.dll"
-        $<TARGET_FILE_DIR:CPPExampleBot>)
+# Copy ONNX Runtime DLL/SO
+if (UNIX)
+    add_custom_command(TARGET CPPExampleBot POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${ONNXRUNTIME_DIR}/lib/libonnxruntime.so"
+            $<TARGET_FILE_DIR:CPPExampleBot>)
+else()
+    add_custom_command(TARGET CPPExampleBot POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${ONNXRUNTIME_DIR}/lib/onnxruntime.dll"
+            $<TARGET_FILE_DIR:CPPExampleBot>)
+endif()

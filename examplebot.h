@@ -28,6 +28,7 @@ private:
   float ang_vel_coef = 1.0f / PI_F;  // WAR FALSCH: 1/5.5, RICHTIG: 1/π
 
   std::array<float, 8> prev_action = {0};
+  int frame_counter = 0;
 
   void EulerToForwardUp(float pitch, float yaw, float roll,
                         float* forward, float* up);
