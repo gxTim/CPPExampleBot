@@ -77,7 +77,7 @@ rlbot::Controller ExampleBot::GetOutput(
 
     try {
         if (!session) {
-            std::cerr << "ONNX session not loaded, returning empty controller" << std::endl;
+            std::cerr << "ONNX Session nicht geladen, leerer Controller wird zurueckgegeben" << std::endl;
             rlbot::Controller controller{ 0 };
             return controller;
         }
