@@ -143,6 +143,7 @@ rlbot::Controller ExampleBot::GetOutput(
         }
 
         // Boost Pads [17-50] (34 pads)
+        // TODO: RLBotCPP API does not expose boost pad state; all pads hardcoded as available (1.0) as known limitation
         for (int i = 0; i < 34; i++) {
             obs[idx++] = 1.0f;
         }
@@ -173,8 +174,8 @@ rlbot::Controller ExampleBot::GetOutput(
         obs[idx++] = playerAngVel->z() * ang_vel_coef;
 
         obs[idx++] = player->boost() / 100.0f;
-        obs[idx++] = 1.0f;  // on_ground
-        obs[idx++] = 1.0f;  // has_flip
+        obs[idx++] = 1.0f;  // on_ground -- TODO: RLBotCPP API does not expose hasWheelContact(); hardcoded as known limitation
+        obs[idx++] = 1.0f;  // has_flip  -- TODO: RLBotCPP API does not expose flip state; hardcoded as known limitation
         obs[idx++] = player->isDemolished() ? 1.0f : 0.0f;
 
         // Enemy
@@ -231,8 +232,8 @@ rlbot::Controller ExampleBot::GetOutput(
         rlbot::Controller controller{ 0 };
         controller.throttle = std::clamp(actions[0], -1.0f, 1.0f);
         controller.steer    = std::clamp(actions[1], -1.0f, 1.0f);
-        controller.yaw      = std::clamp(actions[2], -1.0f, 1.0f);  // WAR pitch!
-        controller.pitch    = std::clamp(actions[3], -1.0f, 1.0f);  // WAR yaw!
+        controller.pitch    = std::clamp(actions[2], -1.0f, 1.0f);  // Index 2 = pitch
+        controller.yaw      = std::clamp(actions[3], -1.0f, 1.0f);  // Index 3 = yaw
         controller.roll     = std::clamp(actions[4], -1.0f, 1.0f);
         controller.jump     = actions[5] > 0.0f;
         controller.boost    = actions[6] > 0.0f;
