@@ -235,9 +235,9 @@ rlbot::Controller ExampleBot::GetOutput(
         controller.pitch    = std::clamp(actions[2], -1.0f, 1.0f);  // Index 2 = pitch
         controller.yaw      = std::clamp(actions[3], -1.0f, 1.0f);  // Index 3 = yaw
         controller.roll     = std::clamp(actions[4], -1.0f, 1.0f);
-        controller.jump     = actions[5] > 0.0f;
-        controller.boost    = actions[6] > 0.0f;
-        controller.handbrake = actions[7] > 0.0f;
+        controller.jump     = actions[5] > 0.5f;
+        controller.boost    = actions[6] > 0.5f;
+        controller.handbrake = actions[7] > 0.5f;
         prev_action = actions;
 
         return controller;
